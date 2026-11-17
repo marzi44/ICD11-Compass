@@ -1,0 +1,16 @@
+{
+  "name": "ICD11 Compass",
+  "short_name": "ICD11 Compass",
+  "description": "ICD-11-Codes für psychische Störungen lernen",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1F5E7A",
+  "theme_color": "#1F5E7A",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
