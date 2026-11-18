@@ -471,6 +471,7 @@ input.field.codein{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;f
 .basics .card h3{font-size:17px;margin-bottom:6px}
 .basics .card p{font-size:15.5px;color:var(--ink-2);line-height:1.5}
 .list summary .code{display:inline-block;min-width:74px;color:var(--accent)}
+.qtext.long{font-size:16px;line-height:1.5}
 .hlogo svg{width:100%;height:100%}
 .legal{font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:14px;text-align:left}
 </style>
@@ -530,10 +531,15 @@ const LOGO_SVG=`<svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" hei
 
 /* ---------- Daten ---------- */
 const ITEMS={};
-UNITS.forEach((u,ui)=>u.items.forEach(a=>{ITEMS[a[0]]={c:a[0],n:a[1],k:a[2]||"",i10:a[3]||"",u:u.id,ui,map:!!u.map};}));
+UNITS.forEach((u,ui)=>(u.items||[]).forEach(a=>{ITEMS[a[0]]={c:a[0],n:a[1],k:a[2]||"",i10:a[3]||"",u:u.id,ui,map:!!u.map};}));
 const ALL=Object.values(ITEMS),DIAG=ALL.filter(i=>!i.map);
 const U=id=>UNITS.find(u=>u.id===id);
-const itemsOf=uid=>U(uid).items.map(a=>ITEMS[a[0]]);
+const CODEUNITS=UNITS.filter(u=>!u.kind);
+function unitCodes(u){if(u.kind==="diff")return [...new Set(CONTRASTS.flatMap(p=>[p[0],p[1]]))];if(u.kind==="case")return [...new Set(u.cases.map(i=>CASES[i].a))];return u.items.map(a=>a[0]);}
+const itemsOf=uid=>unitCodes(U(uid)).map(c=>ITEMS[c]).filter(Boolean);
+const i10Exact=it=>!!it.i10&&it.i10!=="neu"&&!it.i10.startsWith("≈");
+function i10Html(it){if(!it||!it.i10)return "";if(it.i10==="neu")return `ICD-10: keine Entsprechung, neu in ICD-11`;
+  if(it.i10.startsWith("≈"))return `ICD-10: ≈ <b class="code">${esc(it.i10.slice(1))}</b> (keine direkte Entsprechung)`;return `ICD-10: <b class="code">${esc(it.i10)}</b>`;}
 const grpOf=c=>c.length>=4&&/^6[A-E]/.test(c)?(GROUPS[c.slice(0,3)]||null):null;
 const ucol=i=>`--uc:var(--u${i%4})`;
 const unitColor=uid=>ucol(UNITS.findIndex(u=>u.id===uid));
@@ -624,7 +630,7 @@ function vLearn(m){
    <div class="pathhead"><h2>Lernpfad</h2><span class="muted small">${sure} von ${DIAG.length} Codes sicher</span></div>
    ${UNITS.map((u,ui)=>{const d=S.units[u.id]||0,isCur=cu&&cu.id===u.id;
      return `<section class="unit ${isCur?"current":""} ${d>=LPU?"complete":""}" id="unit-${u.id}" style="${ucol(ui)}">
-       <div class="uhead"><div><div class="kicker"><i class="udot"></i>Einheit ${ui+1}${u.map?" · Überblick":u.fine?" · Feinkodierung":""}</div><h2>${esc(u.title)}</h2><p>${esc(u.desc)}</p></div>
+       <div class="uhead"><div><div class="kicker"><i class="udot"></i>Einheit ${ui+1}${u.map?" · Überblick":u.fine?" · Feinkodierung":u.kind==="diff"?" · Abgrenzung":u.kind==="case"?" · Fallbeispiele":""}</div><h2>${esc(u.title)}</h2><p>${esc(u.desc)}</p></div>
          <button class="btn ghost sm" data-practice="${u.id}" aria-label="${esc(u.title)} frei üben">Üben</button></div>
        <div class="nodes">${Array.from({length:LPU},(_,i)=>{const s=i<d?"done":i===d?"cur":"lock";
          return `<button class="node ${s}" data-node="${u.id}" data-i="${i}" data-s="${s}" aria-label="Lektion ${i+1}">${s==="done"?IC.check:`<span>${i+1}</span>`}</button>`;}).join('<i class="link"></i>')}
@@ -646,7 +652,7 @@ function nodeSheet(uid,i,s){const u=U(uid);
   if(s==="lock"){openSheet(`<div class="sic">${IC.lock}</div><h2>Noch gesperrt</h2><p class="muted">Schließe zuerst Lektion ${(S.units[uid]||0)+1} ab. Danach geht es hier weiter.</p><button class="btn primary block" data-close>Okay</button>`);return;}
   const its=itemsOf(uid);
   openSheet(`<div class="kicker" style="${unitColor(uid)}"><i class="udot"></i>${esc(u.title)}</div><h2>Lektion ${i+1}</h2>
-    <p class="muted">${s==="done"?"Schon geschafft. Du kannst sie als Übung wiederholen.":["Erste Begegnung: Code und Bezeichnung zuordnen.","Alle Codes der Einheit, dazu ICD-10-Vergleiche.","Jetzt tippst du Codes auch selbst ein.","Gemischte Aufgaben mit Fallbeschreibungen.","Abschlusslektion: alles gemischt."][i]}</p>
+    <p class="muted">${s==="done"?"Schon geschafft. Du kannst sie als Übung wiederholen.":u.kind==="diff"?"Zwei ähnliche Diagnosen, eine kurze Fallbeschreibung: Welche passt?":u.kind==="case"?"Ausführliche Fallgeschichten: Finde die passende Diagnose.":["Erste Begegnung: Code und Bezeichnung zuordnen.","Alle Codes der Einheit, dazu ICD-10-Vergleiche.","Jetzt tippst du Codes auch selbst ein.","Gemischte Aufgaben mit Fallbeschreibungen und Abgrenzungen.","Abschlusslektion: alles gemischt."][i]}</p>
     <div class="facts">${its.slice(0,6).map(t=>`<span class="fact code">${esc(t.c)}</span>`).join("")}${its.length>6?`<span class="fact">+${its.length-6}</span>`:""}</div>
     <button class="btn primary block" id="go">${s==="done"?"Wiederholen":"Starten"}</button>`);
   $("#go").onclick=()=>{closeSheet();startLesson(uid,s==="done"?"practice":"path");};
@@ -674,13 +680,19 @@ function makeEx(t,it,pool){
     case "name":return mc(t,it,pool,block?"Welche Gruppe beginnt so?":"Welche Diagnose hat diesen Code?",`<span class="bigcode">${esc(it.c)}${block?"…":""}</span>`,block?"Code → Gruppe":"Code → Diagnose",x=>esc(x.n),nameOf);
     case "code":return mc(t,it,pool,block?"Mit welchen Zeichen beginnt diese Gruppe?":"Welcher Code passt?",`<span>${esc(it.n)}</span>`,"Diagnose → Code",x=>esc(x.c)+(block?"…":""),x=>x.c,true);
     case "vig":if(!it.k)return null;return mc(t,it,pool,block?"Welche Gruppe enthält das?":"Welche Diagnose passt zur Beschreibung?",`<span>${esc(it.k)}</span>`,block?"Inhalt":"Fallbeschreibung",x=>`<span class="code">${esc(x.c)}${block?"…":""}</span>${esc(x.n)}`,nameOf);
-    case "i10":if(!it.i10||block)return null;return mc(t,it,pool,"ICD-10 → ICD-11",`<span>In der ICD-10 war das <b class="code">${esc(it.i10)}</b>. Welcher ICD-11-Code entspricht dem am ehesten?</span>`,"Umstieg",x=>`<span class="code">${esc(x.c)}</span>${esc(x.n)}`,x=>x.i10?"i:"+x.i10:x.c);
+    case "i10":if(!i10Exact(it)||block)return null;return mc(t,it,pool.filter(x=>x.i10!==it.i10),"ICD-10 → ICD-11",`<span>In der ICD-10 war das <b class="code">${esc(it.i10)}</b>. Welcher ICD-11-Code entspricht dem?</span>`,"Umstieg",x=>`<span class="code">${esc(x.c)}</span>${esc(x.n)}`,x=>x.i10?"i:"+x.i10:x.c);
+    case "diff":{const ps=CONTRASTS.map((p,i)=>[p,i]).filter(([p])=>p[0]===it.c||p[1]===it.c);if(!ps.length)return null;const [p,pi]=pick(ps);return makeDiff(pi,p[0]===it.c?0:1);}
     case "group":{const g=grpOf(it.c);if(!g)return null;const others=shuffle(Object.values(GROUPS).filter(v=>v!==g)).slice(0,3);
       return {type:t,item:it.c,label:"Einordnen",title:"Zu welcher Gruppe gehört diese Diagnose?",q:`<span><b class="code">${esc(it.c)}</b> ${esc(it.n)}</span>`,opts:shuffle([g,...others]).map(v=>({h:esc(v),ok:v===g}))};}
     case "type":return {type:t,item:it.c,label:"Code eintippen",title:block?"Tippe den Anfang der Gruppe ein":"Tippe den Code ein",q:`<span>${esc(it.n)}</span>`};
   }
   return null;
 }
+const optCode=c=>`<span class="code">${esc(c)}</span>${esc(ITEMS[c].n)}`;
+function makeDiff(pi,side){const p=CONTRASTS[pi],a=p[side],b=p[1-side];if(!ITEMS[a]||!ITEMS[b])return null;
+  return {type:"diff",item:a,label:"Abgrenzung",title:"Was passt besser?",q:`<span>${esc(p[2+side])}</span>`,opts:shuffle([a,b]).map(c=>({h:optCode(c),ok:c===a})),why:esc(p[4])};}
+function makeCase(ci){const c=CASES[ci];if(!ITEMS[c.a])return null;const ds=c.d.filter(d=>ITEMS[d]&&d!==c.a);
+  return {type:"case",item:c.a,label:"Fallbeispiel",title:"Welche Diagnose passt am besten?",q:`<span>${esc(c.t)}</span>`,opts:shuffle([c.a,...ds]).map(x=>({h:optCode(x),ok:x===c.a})),why:esc(c.w)};}
 function makeMatch(pool){const its=shuffle(pool.slice()).slice(0,4);if(its.length<4)return null;
   return {type:"match",item:null,label:"Paare finden",title:"Ordne Codes und Bezeichnungen zu",left:shuffle(its.map(x=>x.c)),right:shuffle(its.map(x=>x.c)),done:[]};}
 function weightedOrder(items){return shuffle(items.slice()).sort((a,b)=>boxOf(a.c)-boxOf(b.c)+(Math.random()-.5)*1.5);}
@@ -688,11 +700,15 @@ function buildLesson(uid,mode){
   let pool,lvl=4,n=10;
   if(mode==="review"){pool=[...new Set(S.mistakes)].map(c=>ITEMS[c]).filter(Boolean).slice(0,12);n=Math.min(12,Math.max(pool.length*2,6));}
   else if(mode==="mix"){const started=UNITS.filter(u=>(S.units[u.id]||0)>0).flatMap(u=>itemsOf(u.id));pool=started.length>=6?started:itemsOf(UNITS[0].id).concat(itemsOf(UNITS[1].id));n=12;}
-  else{pool=itemsOf(uid);if(mode==="path")lvl=S.units[uid]||0;}
+  else{const u=U(uid);
+    if(u.kind==="diff"){const sides=shuffle(CONTRASTS.flatMap((p,i)=>[[i,0],[i,1]]));const ex=[],used=new Set();
+      for(const [pi,s] of sides){if(ex.length>=10)break;if(used.has(pi)&&sides.length>20)continue;used.add(pi);const e=makeDiff(pi,s);if(e)ex.push(e);}return ex;}
+    if(u.kind==="case")return shuffle(u.cases.slice()).map(makeCase).filter(Boolean);
+    pool=itemsOf(uid);if(mode==="path")lvl=S.units[uid]||0;}
   if(!pool.length)return [];
   let focus=pool;
   if(mode==="path"&&lvl===0)focus=pool.slice(0,Math.max(4,Math.ceil(pool.length*.6)));
-  const T=[["name","code","vig"],["name","code","vig","i10","group"],["name","code","type","vig","i10","group"],["vig","type","code","i10","group","name"],["vig","type","type","code","i10","group","name"]][Math.min(4,lvl)];
+  const T=[["name","code","vig"],["name","code","vig","i10","group"],["name","code","type","vig","i10","group"],["vig","type","code","i10","group","name","diff"],["vig","type","type","code","i10","group","name","diff"]][Math.min(4,lvl)];
   const order=weightedOrder(focus),ex=[];let i=0,guard=0;
   while(ex.length<n&&guard++<300){const it=order[i++%order.length];const last=ex[ex.length-1];if(last&&last.item===it.c&&order.length>1)continue;
     const e=makeEx(pick(T),it,pool);if(e)ex.push(e);}
@@ -721,7 +737,7 @@ function exHtml(x){
   else if(x.type==="match")body=`<div class="match"><div class="col">${x.left.map(c=>`<button class="tile code ${x.done.includes(c)?"gone":""}" data-ml="${esc(c)}">${esc(c)}${ITEMS[c].map?"…":""}</button>`).join("")}</div>
      <div class="col">${x.right.map(c=>`<button class="tile ${x.done.includes(c)?"gone":""}" data-mr="${esc(c)}">${esc(ITEMS[c].n)}</button>`).join("")}</div></div>`;
   else body=`<div class="opts">${x.opts.map((o,i)=>`<button class="opt ${x.codeonly?"codeonly":""}" data-o="${i}" aria-pressed="${L.ans===i}"><span class="k">${i+1}</span><span>${o.h}</span></button>`).join("")}</div>`;
-  return `<div class="etype">${esc(x.label)}${L.combo>=3?`<span class="streakchip">${IC.flame}${L.combo} in Folge</span>`:""}</div><div class="qtitle">${esc(x.title)}</div>${x.q?`<div class="qtext">${x.q}</div>`:""}${body}`;
+  return `<div class="etype">${esc(x.label)}${L.combo>=3?`<span class="streakchip">${IC.flame}${L.combo} in Folge</span>`:""}</div><div class="qtitle">${esc(x.title)}</div>${x.q?`<div class="qtext ${x.type==="case"||x.type==="diff"?"long":""}">${x.q}</div>`:""}${body}`;
 }
 function canCheck(){const x=curEx();if(x.type==="type")return !!(L.ans&&L.ans.trim());if(x.type==="match")return false;return L.ans!==null;}
 function answerText(x){if(x.type==="group")return esc(grpOf(x.item));const it=ITEMS[x.item];return `<span class="code">${esc(it.c)}${it.map?"…":""}</span> ${esc(it.n)}`;}
@@ -730,7 +746,8 @@ function footHtml(x){
     return `<div class="lfin"><button class="btn primary block" id="chk" ${canCheck()?"":"disabled"}>Prüfen</button></div>`;}
   const ok=L.state==="ok",it=x.item?ITEMS[x.item]:null;
   const praise=pick(["Richtig!","Genau!","Sehr gut!","Stimmt!","Sitzt!"]);
-  let why="";if(it&&!it.map){const bits=[];if(x.type!=="vig"&&it.k)bits.push(esc(it.k));if(it.i10)bits.push(`ICD-10: <b class="code">${esc(it.i10)}</b>`);why=bits.join(" · ");}
+  let why="";if(x.why)why=x.why;
+  else if(it&&!it.map){const bits=[];if(x.type!=="vig"&&it.k)bits.push(esc(it.k));if(it.i10)bits.push(i10Html(it));why=bits.join(" · ");}
   else if(it&&it.map&&x.type!=="vig")why=esc(it.k);
   return `<div class="lfin"><div class="fb grow"><div class="fbhead"><span class="fbi">${ok?IC.check:IC.x}</span><div class="fbt"><b>${ok?praise:"Nicht ganz"}</b>
     ${x.type==="match"?"":`<p>${ok?"":"Richtig: "}<span class="ans">${answerText(x)}</span></p>`}${why?`<p class="why small">${why}</p>`:""}</div></div>
@@ -824,18 +841,18 @@ function cDeck(){return ALL.filter(t=>(cUnit===null||t.u===cUnit)&&(!cQ||(t.c+" 
 function nextCard(){const d=cDeck();if(!d.length){cCard=null;return;}const min=Math.min(...d.map(v=>boxOf(v.c)));const pool=d.filter(v=>boxOf(v.c)<=min+1&&(!cCard||v.c!==cCard.c));cCard=pick(pool.length?pool:d);cFlip=false;}
 function vCodes(m){
   const sure=DIAG.filter(i=>boxOf(i.c)>=4).length;
-  const chips=`<div class="chips"><button class="chip" data-cu="" aria-pressed="${cUnit===null}">Alle</button>${UNITS.map(u=>`<button class="chip" data-cu="${u.id}" aria-pressed="${cUnit===u.id}">${esc(u.title)}</button>`).join("")}</div>`;
+  const chips=`<div class="chips"><button class="chip" data-cu="" aria-pressed="${cUnit===null}">Alle</button>${CODEUNITS.map(u=>`<button class="chip" data-cu="${u.id}" aria-pressed="${cUnit===u.id}">${esc(u.title)}</button>`).join("")}</div>`;
   let body="";
   if(cView==="karten"){if(!cCard||!cDeck().some(t=>t.c===cCard.c))nextCard();const t=cCard;
     body=chips+(t?`<div class="flip ${cFlip?"on":""}" id="flip" role="button" aria-label="Karte umdrehen"><div class="in">
       <div class="face"><div class="ftop"><span class="tag">${esc(U(t.u).title)}</span>${lvlHtml(boxOf(t.c))}</div><h2 class="code">${esc(t.c)}${t.map?"…":""}</h2><span class="muted small">Tippen zum Umdrehen</span></div>
       <div class="face back"><div class="code" style="color:var(--accent);font-size:20px">${esc(t.c)}${t.map?"…":""}</div><div class="nm">${esc(t.n)}</div><p class="small" style="color:var(--ink-2)">${esc(t.k)}</p>
-        ${t.i10?`<p class="small muted">ICD-10: <b class="code">${esc(t.i10)}</b></p>`:""}${grpOf(t.c)?`<p class="small muted">Gruppe: ${esc(grpOf(t.c))}</p>`:""}</div></div></div>
+        ${t.i10?`<p class="small muted">${i10Html(t)}</p>`:""}${grpOf(t.c)?`<p class="small muted">Gruppe: ${esc(grpOf(t.c))}</p>`:""}</div></div></div>
       <div class="cardacts"><button class="btn" id="again">Nochmal</button><button class="btn primary" id="knew">Gewusst</button></div>`:`<p class="muted">Keine Karten für diese Auswahl.</p>`);}
   else if(cView==="liste"){const d=cDeck();
     body=`<div class="searchbox">${IC.search}<input class="field" id="cq" placeholder="Code, Diagnose oder ICD-10 suchen" value="${esc(cQ)}" autocomplete="off"></div>${chips}
       ${d.length?`<div class="list">${d.map(v=>`<details><summary><div><b><span class="code">${esc(v.c)}${v.map?"…":""}</span> ${esc(v.n)}</b></div>${lvlHtml(boxOf(v.c))}<span class="chv">${IC.chev}</span></summary>
-        <div class="body"><p class="small" style="color:var(--ink-2)">${esc(v.k)}</p>${v.i10?`<p class="small muted">ICD-10: <b class="code">${esc(v.i10)}</b></p>`:""}${grpOf(v.c)?`<p class="small muted">Gruppe: ${esc(grpOf(v.c))}</p>`:""}</div></details>`).join("")}</div>`:`<p class="muted">Nichts gefunden.</p>`}`;}
+        <div class="body"><p class="small" style="color:var(--ink-2)">${esc(v.k)}</p>${v.i10?`<p class="small muted">${i10Html(v)}</p>`:""}${grpOf(v.c)?`<p class="small muted">Gruppe: ${esc(grpOf(v.c))}</p>`:""}</div></details>`).join("")}</div>`:`<p class="muted">Nichts gefunden.</p>`}`;}
   else body=`<div class="basics">${BASICS.map(([h,p])=>`<div class="card"><h3>${esc(h)}</h3><p>${esc(p)}</p></div>`).join("")}</div>`;
   m.innerHTML=`<div class="page-h"><span class="muted">${sure} von ${DIAG.length} Codes sicher</span><h1>Codes</h1></div>
     <div class="stack" style="margin-top:14px"><div class="seg" role="group">${[["karten","Karteikarten"],["liste","Liste"],["aufbau","Aufbau"]].map(([k,l])=>`<button data-cv="${k}" aria-pressed="${cView===k}">${l}</button>`).join("")}</div>${body}</div>`;
@@ -867,7 +884,7 @@ function vProfile(m){
      <button class="it" id="im"><span class="ii">${IC.upload}</span><span class="lb"><b>Sicherung laden</b><span>Auf neues Gerät übertragen</span></span><span class="chv">${IC.chev}</span></button>
      <button class="it" id="rs"><span class="ii">${IC.trash}</span><span class="lb"><b>Fortschritt zurücksetzen</b></span><span class="chv">${IC.chev}</span></button>
    </div>
-   <p class="legal">ICD11 Compass ist eine private Lernhilfe. Codes und Struktur nach der ICD-11 für Mortalitäts- und Morbiditätsstatistiken (MMS) der WHO, lizenziert unter CC BY-ND 3.0 IGO. Keine offizielle Anwendung der WHO. Deutsche Bezeichnungen und Kurzbeschreibungen sind vereinfachte Arbeitsfassungen und ersetzen weder die Originalklassifikation noch die diagnostischen Leitlinien (CDDR). Maßgeblich ist icd.who.int.</p>
+   <p class="legal">ICD11 Compass ist eine private Lernhilfe. Codes und Bezeichnungen nach der ICD-11 für Mortalitäts- und Morbiditätsstatistiken (MMS) der WHO in der deutschen Testfassung des BfArM (Release 2026-01), lizenziert unter CC BY-ND 3.0 IGO. Keine offizielle Anwendung der WHO oder des BfArM. Kurzbeschreibungen, Abgrenzungen und Fälle sind eigene, vereinfachte Lernzusammenfassungen und ersetzen weder die Originalklassifikation noch die diagnostischen Leitlinien (CDDR). Maßgeblich ist icd.who.int.</p>
    <p class="foot">ICD11 Compass · Dein Fortschritt bleibt auf diesem Gerät</p>`;
   $("#goal").onchange=e=>{S.cfg.goal=+e.target.value;save();renderTop();};
   $("#snd").onchange=e=>{S.cfg.sound=e.target.checked;save();};

@@ -1,6 +1,6 @@
 // Hält ICD11 Compass offline nutzbar, sobald die App einmal geöffnet wurde.
 // Bei jeder Änderung an index.html oder data.js die Versionsnummer erhöhen.
-const CACHE = "icd-app-v2";
+const CACHE = "icd-app-v3";
 const CORE = ["./", "./index.html", "./data.js", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
